@@ -5,7 +5,7 @@ let currentAdminSection = 'create-user';
 let currentUserFolder = null;
 
 // Configuración de la API
-const API_BASE = ''; // Cambiar a tu dominio cuando subas al hosting
+const API_BASE = ''; // Configurado para el hosting actual
 
 // Funciones AJAX genéricas
 async function apiCall(url, method = 'GET', data = null) {
@@ -35,7 +35,11 @@ async function apiCall(url, method = 'GET', data = null) {
         
         return result;
     } catch (error) {
+        const responseText = await response.text();
         console.error('Error en API call:', error);
+        console.error('Status:', response.status);
+        console.error('Response text:', responseText);
+        console.error('Headers:', Object.fromEntries(response.headers.entries()));
         throw error;
     }
 }
@@ -96,6 +100,19 @@ async function loadDocuments() {
     }
 }
 
+// Cargar carpetas desde la API
+async function loadFolders() {
+    try {
+        console.log('Loading folders...');
+        const result = await apiCall('get_files.php?action=folders');
+        console.log('Folders result:', result);
+        return result.data || [];
+    } catch (error) {
+        console.error('Error cargando carpetas:', error);
+        return [];
+    }
+}
+
 // Mostrar login
 function mostrarLogin() {
     const app = document.getElementById('app');
@@ -121,6 +138,12 @@ async function mostrarAdmin() {
     try {
         const users = await loadUsers();
         const documents = await loadDocuments();
+        const folders = await loadFolders();
+        
+        console.log('=== MOSTRAR ADMIN ===');
+        console.log('Users:', users);
+        console.log('Documents:', documents);
+        console.log('Folders:', folders);
 
         let usersListHTML = '';
         users.forEach(user => {
@@ -130,9 +153,9 @@ async function mostrarAdmin() {
         });
 
         let foldersOptions = '<option value="">Selecciona carpeta</option>';
-        for (let folder in documents) {
-            foldersOptions += `<option value="${folder}">${folder}</option>`;
-        }
+        folders.forEach(folder => {
+            foldersOptions += `<option value="${folder.carpeta}">${folder.carpeta}</option>`;
+        });
 
         let contentHTML = '';
         if (currentAdminSection === 'create-user') {
@@ -145,12 +168,29 @@ async function mostrarAdmin() {
                 <ul>${usersListHTML}</ul>
             `;
         } else if (currentAdminSection === 'create-folder') {
+            console.log('=== CREATE FOLDER SECTION ===');
+            console.log('Folders received:', folders);
+            console.log('Folders length:', folders.length);
+            
+            let foldersListHTML = '';
+            
+            if (!folders || folders.length === 0) {
+                foldersListHTML = '<li>No hay carpetas creadas</li>';
+                console.log('No folders found');
+            } else {
+                folders.forEach(folder => {
+                    console.log('Processing folder:', folder.carpeta);
+                    foldersListHTML += `<li>${folder.carpeta} <div class="buttons"><button onclick="eliminarCarpeta('${folder.carpeta}')">Eliminar</button></div></li>`;
+                });
+                console.log('Generated HTML:', foldersListHTML);
+            }
+            
             contentHTML = `
                 <h3>Crear Carpeta</h3>
                 <input type="text" id="new-folder" placeholder="Nueva Carpeta">
                 <button onclick="crearCarpeta()">Crear Carpeta</button>
                 <h3>Carpetas Existentes</h3>
-                <ul>${Object.keys(documents).map(f => `<li>${f} <div class="buttons"><button onclick="eliminarCarpeta('${f}')">Eliminar</button></div></li>`).join('')}</ul>
+                <ul>${foldersListHTML}</ul>
             `;
         } else if (currentAdminSection === 'upload-docs') {
             contentHTML = `
@@ -196,10 +236,11 @@ async function mostrarUser() {
     try {
         const documents = await loadDocuments();
         
+        const userFolders = await loadFolders();
         let foldersList = '';
-        for (let folder in documents) {
-            foldersList += `<button onclick="seleccionarCarpeta('${folder}')">${folder}</button>`;
-        }
+        userFolders.forEach(folder => {
+            foldersList += `<button onclick="seleccionarCarpeta('${folder.carpeta}')">${folder.carpeta}</button>`;
+        });
 
         let contentHTML = '<h3>Selecciona una carpeta para ver los documentos</h3>';
         if (currentUserFolder && documents[currentUserFolder]) {
@@ -308,22 +349,42 @@ async function editarPassword(userId) {
 }
 
 // Crear carpeta
-function crearCarpeta() {
+async function crearCarpeta() {
     const folderName = document.getElementById('new-folder').value.trim();
     if (!folderName) {
         alert('Por favor ingrese un nombre para la carpeta');
         return;
     }
     
-    // Esta función requiere un endpoint adicional en el backend
-    alert('Función de crear carpeta requiere implementación en el backend');
+    try {
+        const formData = new FormData();
+        formData.append('folder_name', folderName);
+        formData.append('user_id', currentUser.id);
+        
+        await apiCall('get_files.php?action=create_folder', 'POST', formData);
+        
+        document.getElementById('new-folder').value = '';
+        await mostrarAdmin();
+        alert('Carpeta creada exitosamente');
+    } catch (error) {
+        alert('Error creando carpeta: ' + error.message);
+    }
 }
 
 // Eliminar carpeta
-function eliminarCarpeta(folder) {
+async function eliminarCarpeta(folder) {
     if (confirm(`¿Eliminar la carpeta "${folder}"?`)) {
-        // Esta función requiere un endpoint adicional en el backend
-        alert('Función de eliminar carpeta requiere implementación en el backend');
+        try {
+            const formData = new FormData();
+            formData.append('folder_name', folder);
+            
+            await apiCall('get_files.php?action=delete_folder', 'POST', formData);
+            
+            await mostrarAdmin();
+            alert('Carpeta eliminada exitosamente');
+        } catch (error) {
+            alert('Error eliminando carpeta: ' + error.message);
+        }
     }
 }
 
@@ -386,7 +447,8 @@ async function previewDoc(folder, docId) {
     try {
         // Obtener información del documento
         const docs = await loadDocuments();
-        const doc = documents[folder].find(d => d.id === docId);
+        const docs = await loadDocuments();
+        const doc = docs[folder].find(d => d.id === docId);
         
         if (!doc) {
             alert('Documento no encontrado');
@@ -405,13 +467,25 @@ async function previewDoc(folder, docId) {
 }
 
 // Descargar documento
-function downloadDoc(folder, docId) {
-    const link = document.createElement('a');
-    link.href = `uploads/${folder}/${docId}`;
-    link.download = '';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+async function downloadDoc(folder, docId) {
+    try {
+        const docs = await loadDocuments();
+        const doc = docs[folder].find(d => d.id === docId);
+        
+        if (!doc) {
+            alert('Documento no encontrado');
+            return;
+        }
+        
+        const link = document.createElement('a');
+        link.href = doc.path;
+        link.download = doc.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (error) {
+        alert('Error descargando documento: ' + error.message);
+    }
 }
 
 // Cerrar vista previa

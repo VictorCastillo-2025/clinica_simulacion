@@ -20,9 +20,10 @@ try {
             $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($user && $user['password'] === $password) {
+            if ($user && $password === $user['password']) {
                 // Iniciar sesión
                 session_start();
+                session_regenerate_id(true);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['role'] = $user['role'];
@@ -36,6 +37,8 @@ try {
                     ],
                     'message' => 'Login exitoso'
                 ];
+                echo json_encode($response);
+                exit;
             } else {
                 throw new Exception('Credenciales incorrectas');
             }
@@ -73,8 +76,9 @@ try {
             }
 
             // Crear usuario
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $conn->prepare("INSERT INTO usuarios (username, password, role) VALUES (?, ?, ?)");
-            $stmt->execute([$username, $password, $role]);
+            $stmt->execute([$username, $hashedPassword, $role]);
 
             $response = [
                 'success' => true,
@@ -92,8 +96,9 @@ try {
             $userId = $_POST['user_id'];
             $newPassword = $_POST['new_password'];
 
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
             $stmt = $conn->prepare("UPDATE usuarios SET password = ? WHERE id = ?");
-            $stmt->execute([$newPassword, $userId]);
+            $stmt->execute([$hashedPassword, $userId]);
 
             $response = [
                 'success' => true,

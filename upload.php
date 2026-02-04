@@ -44,14 +44,17 @@ try {
                 continue;
             }
 
-            if (!in_array($fileType, $allowedTypes)) {
+            // Validación mejorada de tipo de archivo
+            $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'txt', 'doc', 'docx'];
+            
+            if (!in_array($fileExtension, $allowedExtensions) || !in_array($fileType, $allowedTypes)) {
                 $errors[] = "El archivo $fileName no es un tipo permitido";
                 continue;
             }
 
-            // Generar nombre único para evitar sobrescribir
-            $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
-            $uniqueName = uniqid() . '_' . time() . '.' . $fileExtension;
+            // Generar nombre seguro y único
+            $uniqueName = bin2hex(random_bytes(16)) . '.' . $fileExtension;
             $destination = $uploadPath . '/' . $uniqueName;
 
             // Mover archivo

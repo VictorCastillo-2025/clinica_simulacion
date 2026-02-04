@@ -1,8 +1,7 @@
 -- Base de datos para Clínica de Simulación
--- Ejecutar este script en phpMyAdmin
+-- Crear estructura completa desde cero
 
-CREATE DATABASE IF NOT EXISTS clinica_simulacion;
-USE clinica_simulacion;
+USE u821991958_clinica_simula;
 
 -- Tabla de usuarios
 CREATE TABLE usuarios (
@@ -17,7 +16,7 @@ CREATE TABLE usuarios (
 INSERT INTO usuarios (username, password, role) VALUES 
 ('admin', 'admin123', 'admin');
 
--- Tabla de documentos
+-- Tabla de documentos (primero)
 CREATE TABLE documentos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
@@ -28,21 +27,19 @@ CREATE TABLE documentos (
     ruta VARCHAR(500) NOT NULL,
     usuario_subio INT NOT NULL,
     fecha_subida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (usuario_subio) REFERENCES usuarios(id) ON DELETE SET NULL,
     INDEX idx_carpeta (carpeta),
     INDEX idx_usuario (usuario_subio)
 );
 
--- Tabla de carpetas (opcional, si quieres gestionarlas por separado)
+-- Tabla de carpetas (después)
 CREATE TABLE carpetas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(100) UNIQUE NOT NULL,
     creada_por INT NOT NULL,
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (creada_por) REFERENCES usuarios(id) ON DELETE CASCADE
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insertar carpetas por defecto
+-- Insertar carpetas por defecto (después de crear usuarios)
 INSERT INTO carpetas (nombre, creada_por) VALUES 
 ('Documentos Médicos', 1),
 ('Historias Clínicas', 1),
