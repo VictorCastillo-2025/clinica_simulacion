@@ -1,0 +1,17 @@
+# Archivos .htaccess para uploads (opcional)
+# Para mayor seguridad, puedes agregar esto en uploads/.htaccess
+
+# Negar acceso directo a archivos PHP
+<Files "*.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Permitir acceso a imágenes y documentos
+<FilesMatch "\.(jpg|jpeg|png|gif|pdf|doc|docx|txt)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Prevenir listado de directorios
+Options -Indexes
